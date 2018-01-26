@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "Serve Hypermedia APIs using PostgreSQL databases",
   "main": "index.js",
+  "engines": {
+    "node": ">=8.0"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -12,7 +15,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "BSD-3-Clause",
   "bugs": {
     "url": "https://github.com/hypergres/hypergres/issues"
   },
