@@ -7,7 +7,13 @@
     "node": ">=8.0"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "lint": "tslint --project tsconfig.json",
+    "test": "jest --coverage",
+    "compile": "tsc --project tsconfig.build.json",
+    "clean": "rm -rf dist coverage",
+    "build": "npm run clean && npm run lint && npm run test && npm run compile && npm run refresh-schemas && npm run copy",
+    "refresh-schemas": "scripts/refresh-schemas.js",
+    "copy": "scripts/copy.js"
   },
   "repository": {
     "type": "git",
@@ -19,5 +25,63 @@
   "bugs": {
     "url": "https://github.com/hypergres/hypergres/issues"
   },
-  "homepage": "https://github.com/hypergres/hypergres#readme"
+  "homepage": "https://github.com/hypergres/hypergres#readme",
+  "dependencies": {
+    "fs-extra": "^5.0.0",
+    "koa": "^2.5.1",
+    "koa-bunyan-logger": "^2.0.0",
+    "liftoff": "^2.5.0",
+    "pg-promise": "^7.4.1",
+    "ramda": "^0.25.0",
+    "squel": "^5.12.0",
+    "strip-json-comments": "^2.0.1",
+    "ts-node": "^4.1.0",
+    "tv4": "^1.3.0",
+    "yaml-configuration-loader": "^1.0.2",
+    "yargs": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/bunyan": "^1.8.4",
+    "@types/fs-extra": "^5.0.0",
+    "@types/jest": "^22.1.0",
+    "@types/koa": "^2.0.46",
+    "@types/node": "^8.5.9",
+    "@types/ramda": "github:types/npm-ramda#dist",
+    "@types/strip-json-comments": "0.0.30",
+    "@types/tv4": "^1.2.29",
+    "@types/yargs": "^10.0.1",
+    "jest": "^22.1.4",
+    "ts-jest": "^22.0.1",
+    "tslint": "^5.10.0",
+    "tslint-consistent-codestyle": "^1.11.0",
+    "typedoc": "^0.10.0",
+    "typescript": "^2.9.2",
+    "typescript-json-schema": "^0.20.0"
+  },
+  "jest": {
+    "mapCoverage": true,
+    "restoreMocks": true,
+    "collectCoverageFrom": [
+      "src/**/*.ts"
+    ],
+    "coveragePathIgnorePatterns": [
+      ".*\\.mock\\.ts"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 80,
+        "functions": 80,
+        "lines": 80
+      }
+    },
+    "transform": {
+      "^.+\\.ts$": "ts-jest"
+    },
+    "testRegex": "(.*\\.test\\.ts)$",
+    "moduleFileExtensions": [
+      "ts",
+      "js",
+      "json"
+    ]
+  }
 }

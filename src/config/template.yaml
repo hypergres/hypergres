@@ -1,0 +1,44 @@
+version: 'v1'
+
+# Data source definitions.
+# Currently, only the 'postgresql' data source driver is supported.
+providers:
+  - id: default
+    driver: postgresql
+    options:
+      hostname: '${env:HYPERGRES_CONNECTION_HOSTNAME}'
+      port: 5432
+      username: '${env:HYPERGRES_CONNECTION_USERNAME}'
+      password: '${env:HYPERGRES_CONNECTION_PASSWORD}'
+      database: '${env:HYPERGRES_CONNECTION_DATABASE}'
+    # Binding discovery options for the default database.
+    # By default, Bindings and CRUD actions are created for each table in the
+    # 'public' schema.
+    # Please refer to https://hypergres.com/docs/hgconfig#discovery for further
+    # guidance on the discovery options that each data source driver accepts.
+    discovery:
+      - schemas:
+          - public
+        tables: true
+        actions:
+          - CreateOne
+          - ReadOne
+          - ReadMany
+          - UpdateOne
+          - DeleteOne
+
+# Security configuration.
+# By default, JWT-based security is enabled and will attempt to use a table
+# named 'users' as the authentication source.
+# Please refer to https://hypergres.com/docs/hgconfig#authentication for further
+# information on the strategies, sources and configurations that are available.
+authentication:
+  - strategy: jwt
+    adapter: source
+
+# Server configuration.
+# By default, the server is configured to serve HTTP only on port 8080.
+# Please refer to https://hypergres.com/docs/hgconfig#server for guidance on
+# HTTPS and other configuration.
+server:
+  port: 8080
