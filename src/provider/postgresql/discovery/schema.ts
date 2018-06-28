@@ -189,19 +189,19 @@ export const isReadOnly = (column: Column): Partial<PropertyAttributes> => {
  * @returns `{enum: [values]}` if the column contains a suitable CHECK contraint
  */
 export const isEnumConstraint = (column: Column): Partial<PropertyAttributes> => {
-  if (!column.constraints || !column.constraints.length) {
+  if (!column.constraints) {
     return {};
   }
 
   const values = column.constraints
     .map(constraint => {
       if (!constraint) {
-        return [];
+        return;
       }
 
       const result = constraint.match(ENUM_CHECK_REGEX);
       if (!result || !result[1]) {
-        return [];
+        return;
       }
 
       return result[1].split(', ')
@@ -211,7 +211,7 @@ export const isEnumConstraint = (column: Column): Partial<PropertyAttributes> =>
         })
         .filter(identity) as string[];
     })
-    .filter(identity);
+    .filter(identity) as string[][];
 
   if (!values.length) {
     return {};

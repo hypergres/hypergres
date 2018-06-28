@@ -1,4 +1,4 @@
-import * as pgPromise from 'pg-promise'; // mocked
+import * as pgPromise from 'pg-promise'; // Mock
 
 import { PostgreSQL } from './postgresql';
 import { Provider as ProviderConfig } from '../config';

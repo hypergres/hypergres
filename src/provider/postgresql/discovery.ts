@@ -65,7 +65,7 @@ export interface Options {
 export interface Table {
   schema: string;
   name: string;
-  primary_keys: string[];
+  identifyingProperties: string[];
 }
 
 /**
@@ -132,7 +132,7 @@ export const inspect = async (context: Context, config: Config, options: Options
 
       return {
         name: table.name,
-        identifyingProperties: table.primary_keys,
+        identifyingProperties: table.identifyingProperties,
         has,
         belongsTo,
         schema: schema(table, columns, options)
