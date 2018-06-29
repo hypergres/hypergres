@@ -1,5 +1,4 @@
 import * as pgPromise from 'pg-promise';
-import { flatten } from 'ramda';
 
 import { Provider as ProviderConfig } from '../config';
 import { Provider } from '../provider';
@@ -180,10 +179,6 @@ export class PostgreSQL implements Provider<Context> {
    *
    * @return A Promise that will resolve to a list of Source configurations.
    */
-  discover = async (context: Context) => {
-    const sources = this.config.discovery.map(config => inspect(context, config));
-
-    return Promise.all(sources)
-      .then(flatten);
-  }
+  discover = (context: Context) =>
+    inspect(context, this.config.discovery)
 }

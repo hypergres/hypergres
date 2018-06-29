@@ -6,7 +6,7 @@ const id: Column = {
   nullable: false,
   default: `nextval('test_id_seq'::regclass)`,
   type: 'integer',
-  isprimarykey: true,
+  isPrimaryKey: true,
 };
 
 const forename: Column = {
@@ -14,7 +14,7 @@ const forename: Column = {
   nullable: false,
   default: null,
   type: 'character varying',
-  isprimarykey: false
+  isPrimaryKey: true,
 };
 
 const surname: Column = {
@@ -22,7 +22,7 @@ const surname: Column = {
   nullable: false,
   default: null,
   type: 'character varying',
-  isprimarykey: false
+  isPrimaryKey: true,
 };
 
 const age: Column = {
@@ -30,7 +30,7 @@ const age: Column = {
   nullable: false,
   default: 30,
   type: 'smallint',
-  isprimarykey: false,
+  isPrimaryKey: false,
   constraints: [
     '(age > 16)'
   ]
@@ -41,7 +41,7 @@ const gender: Column = {
   nullable: true,
   default: null,
   type: 'character',
-  isprimarykey: false
+  isPrimaryKey: false,
 };
 
 const rating: Column = {
@@ -49,7 +49,7 @@ const rating: Column = {
   nullable: true,
   default: null,
   type: 'character',
-  isprimarykey: false,
+  isPrimaryKey: false,
   constraints: [
     `(rating = ANY (ARRAY['good'::text, 'average'::text, 'bad'::text]))`
   ]

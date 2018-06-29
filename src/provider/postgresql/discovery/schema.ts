@@ -1,7 +1,7 @@
 import { flatten, identity, merge, mergeAll } from 'ramda';
 
 import { Schema, SchemaProperties, PropertyAttributes } from '../../../source';
-import { Table, Column, Options } from '../discovery';
+import { Column, Options } from '../discovery';
 
 /**
  * Allows Integer columns to be represented as a String when the `strictNumbers`
@@ -95,9 +95,9 @@ const ENUM_EXTRACT_VALUE_REGEX = /^'(.*)'::.*/;
  * @param options Options to use for schema creation
  * @returns A promise that will resolve to the schema for the given table
  */
-export const schema = (table: Table, columns: Column[], options: Options = {}): Schema => ({
+export const schema = (title: string, columns: Column[], options: Options = {}): Schema => ({
   $schema: 'http://json-schema.org/draft-04/schema#',
-  title: table.name,
+  title,
   type: 'object',
   properties: properties(columns, options),
   required: required(columns, options)
@@ -173,7 +173,7 @@ export const columnType = (column: Column, options: Options = {}): PropertyAttri
  * @returns `{readOnly: true}` if the column should be marked read-only
  */
 export const isReadOnly = (column: Column): Partial<PropertyAttributes> => {
-  const isPrimary = column.isprimarykey &&
+  const isPrimary = column.isPrimaryKey &&
     column.nullable === false &&
     typeof column.default === 'string' &&
     (column.default as string).startsWith('nextval');

@@ -1,8 +1,8 @@
-import { QueryFile } from 'pg-promise';
+import { QueryFile, as } from 'pg-promise';
 import { resolve } from 'path';
-import { memoize } from 'ramda';
+import { curry, identity, memoizeWith } from 'ramda';
 
-import { Source, Relationship } from '../../source';
+import { Source } from '../../source';
 import { Context } from '../postgresql';
 import { schema } from './discovery/schema';
 
@@ -22,18 +22,15 @@ type Scope = true | { only: string[] } | { except: string[] };
  */
 export interface Config {
   /**
-   * Controls the discovery scope to a list of Schemas.
+   * Restricts the discovery scope to a list of Schemas.
    */
   schemas: Scope;
   /**
-   * Controls the discovery scope regarding Tables. If omitted, no Tables will
-   * be enumerated.
+   * Restricts the Source discovery scope regarding Tables.
    */
   tables?: Scope;
   /**
-   * Controls the discovery scope regarding Views. If omitted, no Tables are
-   * inspected. If `true`, all Tables are inspected. If a list of Table names,
-   * only Tables with those names are inspected.
+   * Controls the discovery scope regarding Views.
    */
   views?: Scope;
   /**
@@ -63,131 +60,152 @@ export interface Options {
  * Represents the results returned by the query contained in `tables.sql`
  */
 export interface Table {
-  schema: string;
-  name: string;
-  identifyingProperties: string[];
+  table_schema: string;
+  table_name: string;
+  primary_keys: string[];
+  columns: Column[];
+  has: Relationship[];
+  belongs_to: Relationship[];
 }
 
 /**
- * Represents the results returned by the query contained in `columns.sql`
+ * Represents the results returned by the query contained in `views.sql`
+ */
+export interface View {
+  table_schema: string;
+  table_name: string;
+  columns: Column[];
+}
+
+/**
+ * Represents each element in the `columns` array returned by the query
+ * contained in `columns.sql`
  */
 export interface Column {
   name: string;
   type: string;
   nullable: boolean;
-  default: string | number;
-  isprimarykey: boolean;
+  default: string | number | null;
+  isPrimaryKey: boolean;
   constraints?: Array<string | null>;
 }
 
 /**
- * Creates a `QueryFile` instance from a query stored on disk.
- *
- * @param name The name of the file containing the query, excluding path and
- * file extension.
+ * Represents the Relationship data returned by the queries contained in
+ * `has.sql` and `belongsTo.sql`
  */
-const queryFile = (name: string) =>
-  new QueryFile(resolve(__dirname, 'discovery', `${name}.sql`));
+export interface Relationship {
+  schema: string;
+  name: string;
+  from: string;
+  to: string;
+}
 
 /**
- * Creates an Object containing `QueryFile` instances for each inspection query.
- * Memoized to ensure that only instance of `QueryFile` is ever created for each
- * query.
+ * Creates a `QueryFile` instance of named query file. Memoized to ensure that
+ * only one instance is created for optimal reuse by pg-promise.
  */
-const queries = memoize(() => ({
-  tables: queryFile('tables'),
-  has: queryFile('has'),
-  belongsTo: queryFile('belongsTo'),
-  columns: queryFile('columns')
-}));
+const queryFile = memoizeWith(identity, (name: string) =>
+  new QueryFile(resolve(__dirname, 'discovery', `${name}.sql`))
+);
 
 /**
  * Generates Source configurations for each Table within a PostgreSQL database
  * based upon enumerated tables, foreign key relationships and column types.
  *
  * @param context The Context to use for executing queries used to inspect the Schema.
- * @param config The Config object to use to determine the scope of the inspection queries.
+ * @param configs The Config object to use to determine the scope of the inspection queries.
  * @param options Options to supply to the post-processing functions to
  * customise automatic JSON Schema generation, etc.
  *
  * @return A Promise that will resolve to a list of Source configurations, one
  * for each enumerated Table.
  */
-export const inspect = async (context: Context, config: Config, options: Options = {}): Promise<Source[]> => {
-  const sql = queries();
+export const inspect = async (context: Context, configs: Config[], options: Options = {}): Promise<Source[]> => {
+  const [tables, views] = await context.batch([
+    context.manyOrNone(queryFile('tables'), {
+      conditions: conditions('tables', configs),
+      queries: {
+        columns: queryFile('columns'),
+        has: queryFile('has'),
+        belongsTo: queryFile('belongsTo')
+      }
+    }),
 
-  const tables = await context.manyOrNone<Table>(sql.tables);
+    context.manyOrNone(queryFile('views'), {
+      conditions: conditions('views', configs),
+      queries: {
+        columns: queryFile('columns')
+      }
+    })
+  ]) as any as [Table[], View[]];
 
-  const results = filterTablesByScope(config, tables)
-    .map(async table => {
-      const [has, belongsTo, columns]: [
-        Relationship[],
-        Relationship[],
-        Column[]
-      ] = await context.batch([
-        context.manyOrNone(sql.has, table),
-        context.manyOrNone(sql.belongsTo, table),
-        context.manyOrNone(sql.columns, table)
-      ]) as any;
-
-      return {
-        name: table.name,
-        identifyingProperties: table.identifyingProperties,
-        has,
-        belongsTo,
-        schema: schema(table, columns, options)
-      } as Source;
-    });
-
-  return Promise.all(results);
+  return [
+    ...mapTables(configs, options, tables),
+    ...mapViews(configs, options, views)
+  ];
 };
 
 /**
- * Determines if an Entity identified by `name` falls within a discovery scope
- *
- * @param scope The Scope to compare against
- * @param name The name of the Entity being compared
- *
- * @return `true` if `name` falls within `scope`, otherwise `false`.
+ * Builds a WHERE clause that restricts entities enumerated to the rules
+ * specified in discovery conditions.
  */
-const matchesScope = (scope: Scope | undefined, name: string) => {
+export const conditions = (type: 'tables' | 'views', configs: Config[]) =>
+  configs
+    .map(config => `(${scopeTerm('table_schema', config.schemas)} AND ${scopeTerm('table_name', config[type])})`)
+    .join(' OR ');
+
+/**
+ * Creates a WHERE term that matches against a specific field name for a given
+ * scope. This function uses pg-promise's `as.format` helper as Squel doesn't
+ * seem to handle parameter placeholders in expressions correctly.
+ *
+ * @param name The field name to match against in the inspect query result
+ * @param scope The Scope matching rule to compare `name` against
+ *
+ * @return A string representing a term in a WHERE clause
+ */
+const scopeTerm = (name: string, scope?: Scope): string => {
   if (!scope) {
-    return false;
+    return as.format('FALSE', [name]);
   }
 
   if (scope === true) {
-    return true;
+    return as.format('TRUE', [name]);
   }
 
   if ('only' in scope) {
-    return scope.only.includes(name);
+    return as.format('$1:name IN ($2:csv)', [name, scope.only]);
   }
 
   if ('except' in scope) {
-    return !scope.except.includes(name);
+    return as.format('$1:name NOT IN ($2:csv)', [name, scope.except]);
   }
 
-  throw Error('Invalid scope');
+  throw new Error('Invalid scope');
 };
 
 /**
- * Filters a list of Table query results to only contain those in the scope of
- * `config.schemas` and `config.tables`.
- *
- * @param config The Discovery configuration to extract Schema and Table scopes
- * from.
- * @param tables A list of Tables to filter by scope
- *
- * @return A list of Tables that have been filtered by scope.
+ * Creates a Soruce configuration from an inspected Table.
  */
-const filterTablesByScope = (config: Config, tables: Table[]) => {
-  if (config.schemas === true && config.tables === true) {
-    return tables;
-  }
+export const mapTables = curry((configs: Config[], options: Options, tables: Table[]): Source[] =>
+  tables.map<Source>(table => ({
+    name: table.table_name,
+    identifyingProperties: table.primary_keys,
+    has: [],
+    belongsTo: [],
+    schema: schema(table.table_name, table.columns, options)
+  }))
+);
 
-  return tables
-    .filter(table => (
-      matchesScope(config.tables, table.name) &&
-      matchesScope(config.schemas, table.schema)
-    ));
-};
+/**
+ * Creates a Source configuration from an inspected View.
+ */
+export const mapViews = curry((configs: Config[], options: Options, views: View[]): Source[] =>
+  views.map<Source>(view => ({
+    name: view.table_name,
+    identifyingProperties: [],
+    has: [],
+    belongsTo: [],
+    schema: schema(view.table_name, view.columns, options)
+  })));

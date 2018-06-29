@@ -13,7 +13,7 @@ const path = (...segments) => [
   resolve(DIST, ...tail(segments))
 ];
 
-const SQL = ['tables', 'columns', 'belongsTo', 'has']
+const SQL = ['tables', 'views', 'columns', 'belongsTo', 'has']
   .map(name => path(SRC, 'provider', 'postgresql', 'discovery', `${name}.sql`));
 
 const PATHS = [
